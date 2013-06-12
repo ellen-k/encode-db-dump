@@ -1,0 +1,10 @@
+Scripts for downloading pages from a mediawiki site by oldid and turning them into pdf files
+please see input-sample.conf for setting up your configuration
+
+This requires wkhtmltopdf -- the DL I used on ubuntu is
+
+wkhtmltopdf-0.11.0_rc1-static-i386.tar.bz2
+
+although I'm not confident of the link. from the google repository.
+Not sure which I'm using for mac or windows7.
+
