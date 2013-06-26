@@ -1,0 +1,20 @@
+---
+# Sample YAML configuration file for get-wiki-dbinfo.pl
+
+# Submission DB handle
+db_handle: dbi:Pg:dbname=mydatabase;host=localhost
+db_user: username
+db_pw: password
+
+# Input and output files
+project_list: input.txt
+output_file: output.txt
+
+# Input file format
+# Designed to be compatible with the 'list.txt' file from the submit site.
+# Input file should be tab separated
+# What column is the project ID in (first colum = index of 0)?
+input_pid_column: cats
+# Should we filter submissions by whether a certain column says 'released' or not? (true / false)
+filter_by_released: true
+input_released_column: 9 # Where to look for the 'released' (0-based indices)
