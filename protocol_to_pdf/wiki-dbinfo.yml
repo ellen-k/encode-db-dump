@@ -17,4 +17,5 @@ output_file: output.txt
 input_pid_column: 0
 # Should we filter submissions by whether a certain column says 'released' or not? (true / false)
 filter_by_released: true
-input_released_column: 9 # Where to look for the 'released' (0-based indices)
+# Where to look for the 'released' (0-based indices)
+input_released_column: 9 

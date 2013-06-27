@@ -13,6 +13,8 @@ use strict;
 use warnings;
 use YAML;
 use URI::Escape qw();
+use List::MoreUtils qw(first_index);
+use feature qw(switch);
 
 unless( scalar(@ARGV) == 1){
   print "    Usage: perl get-wiki-dbinfo.pl <configuration file>" .
@@ -72,16 +74,26 @@ my $sth_find_sp = $dbh->prepare("SELECT exists(SELECT schema_name
                                  WHERE schema_name = ?)") or die $dbh->errstr;
 my $sth_search_path = $dbh->prepare('SET search_path=?') or die "Couldn't prepare searchpath: " . $dbh->errstr;
 
-my $sth_accession = $dbh->prepare("SELECT dbxref.accession, dbxref.dbxref_id FROM dbxref 
+# Get all mentions of wikipages (by db description)
+# and get the mentions of each wiki dbxref in attribute, cvterm, data, experiment, & protocol tables.
+my $sth_accession = $dbh->prepare("SELECT dbxref.accession, dbxref.dbxref_id,
+                                   count(a.dbxref_id),
+                                   count(c.dbxref_id),
+                                   count(d.dbxref_id),
+                                   count(e.dbxref_id),
+                                   count(p.dbxref_id)
+                                   FROM dbxref 
                                    INNER JOIN db ON dbxref.db_id = db.db_id
+                                   LEFT JOIN attribute a on a.dbxref_id = dbxref.dbxref_id
+                                   LEFT JOIN cvterm c on c.dbxref_id = dbxref.dbxref_id
+                                   LEFT JOIN data d on d.dbxref_id = dbxref.dbxref_id
+                                   LEFT JOIN experiment_prop e on e.dbxref_id = dbxref.dbxref_id
+                                   LEFT JOIN protocol p ON p.dbxref_id = dbxref.dbxref_id
                                    WHERE db.description = 'URL_mediawiki_expansion'
                                    GROUP BY dbxref.accession, dbxref.dbxref_id
                                    HAVING dbxref.accession != '__ignore'"
                                  ) or die "Couldn't prepare accession: " . $dbh->errstr;
 
-
-# TODO: Figure out how to tell what kind of thing it is (antibody, protocol, etc)
-#my $sth_wikipage_type = $dbh->prepare("TODO" ) or die "Couldn't prepare accession type check: " . $dbh->errstr;
 
 my $sp_exists = 0; # does the schema exists?
 print "Getting list of accessions:\n";
@@ -107,8 +119,6 @@ while (my $projline = <PROJECTLIST>) {
   }
 
   print "Processing submission $pid...\n";
-  print "." ;
-
 
   # Get accession information from the database
   my $search_path = "modencode_experiment_$pid" . "_data" ;
@@ -120,10 +130,12 @@ while (my $projline = <PROJECTLIST>) {
 
   $sth_search_path->execute($search_path)  or die $dbh->errstr;
   $sth_accession->execute() or die "Couldn't execute accessions: " . $dbh->errstr;
- 
-  # TODO : Check for what the type of the accession is.
 
-  while(my ($accession) = $sth_accession->fetchrow_array()) {
+
+  # Note: when I attempted to execute an SQL query INSIDE this while loop, it ran properly
+  # for the first search_path and none of the subsequent ones. It is unclear what DBI's 
+  # intended behavior is for reusing prepared statements while the search_path changes.
+  while(my ($accession, $dbxref_id, @wikitype) = $sth_accession->fetchrow_array()) {
     # Clean the URL
     $accession =~ s|^\Qhttp://wiki.modencode.org/project/index.php?title=\E||g;
    
@@ -132,13 +144,25 @@ while (my $projline = <PROJECTLIST>) {
     $accession = URI::Escape::uri_unescape($accession);
     # note weird accessions like Celniker/RNA:48 
 
-    # Print submission id, title, oldid to OUTPUT
+    # Figure out what other tables reference this accession
+    my $found_wikitype = "NO_WIKITYPE";
+    given(first_index{ $_ > 0 } @wikitype  ) {
+      when (0) {  $found_wikitype = "attribute"; }
+      when (1) {  $found_wikitype = "cvterm"; }
+      when (2) {  $found_wikitype = "data"; }
+      when (3) {  $found_wikitype = "experiment_prop"; }
+      when (4) {  $found_wikitype = "protocol"; }
+      default  { print "\nCouldn't find type for $pid : $dbxref_id !\n"; }
+    }
+
+    # Print submission id, title, oldid, wikitype to OUTPUT
     print OUTPUT $pid . "\t" . $title . "\t";
     if (defined $oldid) {
-      print OUTPUT $oldid . "\n";
+      print OUTPUT $oldid . "\t";
     } else {
-      print OUTPUT "NO_OLDID\n";
+      print OUTPUT "NO_OLDID\t";
     }
+    print OUTPUT $found_wikitype . "\n";
   }
 }
 
