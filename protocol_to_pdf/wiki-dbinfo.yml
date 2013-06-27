@@ -14,7 +14,7 @@ output_file: output.txt
 # Designed to be compatible with the 'list.txt' file from the submit site.
 # Input file should be tab separated
 # What column is the project ID in (first colum = index of 0)?
-input_pid_column: cats
+input_pid_column: 0
 # Should we filter submissions by whether a certain column says 'released' or not? (true / false)
 filter_by_released: true
 input_released_column: 9 # Where to look for the 'released' (0-based indices)
