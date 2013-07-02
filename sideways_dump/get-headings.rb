@@ -1,8 +1,8 @@
 #!/usr/bin/ruby
 
 # get the headings that we will make the giant graph out of
-
-# For now, use the tabseparated files I've already got!
+# Note that this code handles files which have inappropriate embedded tabs and newlines
+# newly dumped files will no long have these problems.
 
 # for each submission
 
@@ -18,11 +18,11 @@ tables = [
   ["protocol", "1", 5]
   ]
 
-basedir = "/u/ekephart/encode3/old_dump_all/final/data"
+basedir = "~/encode3/old_dump_all/final/data"
 #subs = Dir.entries(basedir).reject{|s| s =~ /\./ }[0..50] # a small test
 subs = Dir.entries(basedir).reject{|s| s =~ /\./ }
 
-rawout = File.open("rawout", "w")
+rawout = File.open("raw_output", "w")
 
 subs.each{|s|
   tables.each{|t|
