@@ -1,0 +1,9 @@
+Many of the tables in the ModEncode database are in a key-value format.
+It would be more convenient to have the keys as column-headings (including one for submission ID) and the vales as the values,
+so this script turns the tables "sideways" to achieve this.
+
+(It doesn't actually turn them sideways, but a convenient way to refer to the transformation was necessary.)
+
+Scripts:
+
+get_headings.rb -- finds potential column headings from dumped tables.
