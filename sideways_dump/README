@@ -4,6 +4,17 @@ so this script turns the tables "sideways" to achieve this.
 
 (It doesn't actually turn them sideways, but a convenient way to refer to the transformation was necessary.)
 
+
+USAGE :
+Run dump_from_db.rb to pull the tables in their raw ModEncode format to disc.
+
+get_headings.rb is used to get a list of the keys encountered in all the submissions, for
+constructing the script to make the result table.
+
+
+
 Scripts:
 
+dump_from_db.rb : Pulls raw tables directly from the database.
+  requires db_helper.rb and format_helper.rb in parent dir
 get_headings.rb -- finds potential column headings from dumped tables.

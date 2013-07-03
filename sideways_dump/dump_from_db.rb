@@ -6,15 +6,15 @@ require File.join( File.dirname(__FILE__), '..', 'format_helper.rb');
 # for each submission in the following list 'projs':
 
 #projs = FormatHelper.released_projs()
-#projs = File.open("real-bad-tabs-to-do.txt", "r").readlines.map{|s| s.to_i}
-projs = [3575, 666]
+projs = File.open("redosubs.2013.07.02.txt", "r").readlines.map{|s| s.to_i}
+#projs = [3575, 666]
 
 # dump the tables listed below into a tabular format,
 # stripping tabs and newlines.
 
 # Creates a directory for each submission in the specified output directory,
 # with a file for each table.
-output_basedir = "dbdump_output"
+output_basedir = "../../OUTPUT/july2redo"
 
 # Dependencies: Must be run in the rails context
 # if we use the FormatHelper.released_projs() method
