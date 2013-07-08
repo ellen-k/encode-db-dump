@@ -32,24 +32,29 @@ baseout = ARGV[1]
 FIXTABS = ! ARGV[2].nil? # so technically it doesn't HAVE to be -f.
 
 
+puts "Fixing embedded newlines and tabs." if FIXTABS
+
 # Does this header match 'special case' criteria
-# & thus should be excluded from the main tables
+# & thus should be excluded from the main tables ?
+# Remember, header will also include the tablename.
 def special_case_this_header?(header)
+  
+  ret = false
 
-  return true if( header =~ /^:Anonymous Datum #\d+$/)
-  return true if( header =~ /^GSM\d+:data_url$/ )# Just an URL to GEO, don't need
-  return true if( header =~ /^SRR\d+:data_url$/ )# Specific SRR ID
-  return true if( header =~ /^GSM\d+:GEO_record$/) # Geo ID
-  return true if( header =~ /^GEO:TMPID:.*$/) # Geo ID
+  ret = true if( header =~ /^:Anonymous Datum #\d+/)
+  ret = true if( header =~ /^GSM\d+:data_url/ )# Just an URL to GEO, don't need
+  ret = true if( header =~ /^SRR.*:data_url/ )
+  ret = true if( header =~ /^GSM\d+:GEO_record/) # Geo ID
+  ret = true if( header =~ /^GEO:TMPID:.*/) # Geo ID
 
-  # TODO more cases
-
-  return false
+  # TODO more cases?
+  
+  ret
 end
 
 
 
-# table filename and the columns in it that we want
+# table filename, header column indices, and expected # of columns
 tables = [
   ["attribute", "1,2", 7],
   ["data", "1,2", 6],
@@ -65,18 +70,26 @@ fnames = Hash.new{|h, filetype| "#{baseout}.#{filetype}" }
 
 rawout = File.open(fnames["raw"], "w")
 multiout = File.open(fnames["multi"], "w")
-singleout = File.open(fnames["uniq"], "w")
+uniqout = File.open(fnames["uniq"], "w")
+specialout = File.open(fnames["special"], "w")
 
-subs.each{|s|
-  tables.each{|t|
-    tfile = t[0]
-    cols = t[1]
-    tabcount = t[2] # how many columns should this table have
-    openme = File.join(basedir, s, tfile)
+subs.each{|sub|
+  rawout.flush
+  multiout.flush
+  uniqout.flush
+  specialout.flush
+  print "#{sub}."
+  STDOUT.flush
+
+  tables.each{|table|
+    tfile = table[0]
+    cols = table[1]
+    tabcount = table[2] # how many columns should this table have
+    openme = File.join(basedir, sub, tfile)
     data = File.open(openme, "r").readlines.map{|l| l.split("\t")} if File.exist? openme
 
 
-    rawout.puts "---#{s}:#{tfile}---"
+    rawout.puts "---#{sub}:#{tfile}---"
     
     # for each data line, get the header combo that it contains
     unless data.nil? then
@@ -92,13 +105,13 @@ subs.each{|s|
           if (line.length == tabcount) && current == [""]
             fixed << line
           else
-            puts "Wrong # of columns found in #{s}/#{tfile}." # alert
+            puts "Wrong # of columns found in #{sub}/#{tfile}." # alert
             # IMPORTANT join the items that has the evil embedded newline
             current[-1] += line.shift unless line.empty?
             # then join it
             current += line
             if current.length > tabcount then
-              puts "Can't fix #{s}/#{tfile}; skipping!" 
+              puts "Can't fix #{sub}/#{tfile}; skipping!" 
               # ABORT and drop the table's headings rather than make wrong ones 
               gtfo = true
               break
@@ -121,39 +134,40 @@ subs.each{|s|
         cols.split(",").map(&:to_i).map{|c| line[c]}.join(":")
       }
 
-      # Check for uniqueness: Are there any nonunique key:heading pairs?
-      # If so, put them for the multiheading table.
-    
-      nonuniq,unique = heads.uniq.partition{|h| heads.count(h) > 1 }
-      multiout.puts nonuniq.join("\n")
-      singleout.puts unique.join("\n")
+      # Note which file the headers are in, so that we can correlate the multiheaders later
+      heads.map!{|head| "#{head}::#{tfile}" }
 
+      # Log the raw headers
       rawout.puts heads.join("\n")
+
+      # Clear out 'special' headers before checking for uniqueness, because
+      # it's n^2 and makes a few subs run super slow.
+      (specialheaders, normalheaders) = heads.partition{|s| special_case_this_header?(s)}
+      specialout.puts specialheaders.uniq.join("\n")
+
+      # Then, check for uniqueness: Are there any nonunique key:heading pairs?
+      # If so, put them for the multiheading table.
+      nonuniq,unique = normalheaders.uniq.partition{|h| normalheaders.count(h) > 1 }
+      multiout.puts nonuniq.join("\n")
+      uniqout.puts unique.join("\n")
     end
   } 
 }
 
 rawout.close
 multiout.close
-singleout.close
+uniqout.close
 
-puts "Finished processing input...cleaning up lists."
+puts "\nFinished processing input...cleaning up lists."
 
 # Then, some file cleanup:
 # Remove all headers appearing in multiheaders from singleheaders
 
 multiheaders = File.open(fnames["multi"], "r").readlines.map{|s| s.chomp}.uniq
-singleheaders = File.open(fnames["uniq"], "r").readlines.map{|s| s.chomp}.uniq
+uniqheaders = File.open(fnames["uniq"], "r").readlines.map{|s| s.chomp}.uniq
 
-singleheaders.reject!{|s| multiheaders.include? s}
-
-# Then, separate out known special-case headers 
-
-specialheaders, singleheaders = singleheaders.partition{|s| special_case_this_header?(s) }
+uniqheaders.reject!{|s| multiheaders.include? s}
 
 # Write stuff to file
 
-File.open(fnames["multi"], "w").puts multiheaders.join("\n")
-File.open(fnames["uniq"], "w").puts singleheaders.join("\n")
-File.open(fnames["special"], "w").puts specialheaders.join("\n")
-
+File.open(fnames["uniq"], "w").puts uniqheaders.join("\n")
