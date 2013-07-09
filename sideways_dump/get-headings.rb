@@ -17,10 +17,31 @@
 # basename.multi
 #   All headings which appear at least twice in at least one submission
 # basename.special
-#   Special-cased headings -- see special_case_this_header
-#   Which require special handling. Mostly GEO ids.
+#   Special-cased headings -- see special_case_this_header() below --
+#   which require special handling. Mostly GEO ids.
+  
 
-# Arguments
+# Methods #
+
+# Does this header match 'special case' criteria
+# & thus should be excluded from the main tables ?
+# When building regexes, remember that header will also include the tablename.
+def special_case_this_header?(header)
+  ret = false
+  ret = true if( header =~ /^:Anonymous (?:Extra )?Datum #\d+/)
+  ret = true if( header =~ /^GS[EM]\d+:data_url/ )# Just an URL to GEO, don't need
+  ret = true if( header =~ /^SR[ARX].*:data_url/ ) #SRR, SRA, SRX IDs
+  ret = true if( header =~ /^SRR\d+:ShortReadArchive_project_ID/ ) #SRR ID
+  ret = true if( header =~ /^GSM\d+:GEO_record/) # Geo ID
+  ret = true if( header =~ /^GEO:TMPID:.*/) # Temp Geo ID
+  ret = true if( header =~ /^SRA:TMPID:.*/) # Temp SRA ID
+  ret = true if( header =~ /modENCODE Reference for/) # Reference to sub
+  # TODO more cases?
+
+  ret
+end
+
+# Main #
 if ARGV.length < 2 then
   puts "Usage: ./get_headings.rb input_directory output_file_basename [-f]
         -f: Fix embedded newlines or tabs." 
@@ -31,42 +52,19 @@ basedir = ARGV[0]
 baseout = ARGV[1]
 FIXTABS = ! ARGV[2].nil? # so technically it doesn't HAVE to be -f.
 
-
-puts "Fixing embedded newlines and tabs." if FIXTABS
-
-# Does this header match 'special case' criteria
-# & thus should be excluded from the main tables ?
-# Remember, header will also include the tablename.
-def special_case_this_header?(header)
-  
-  ret = false
-
-  ret = true if( header =~ /^:Anonymous Datum #\d+/)
-  ret = true if( header =~ /^GSM\d+:data_url/ )# Just an URL to GEO, don't need
-  ret = true if( header =~ /^SRR.*:data_url/ )
-  ret = true if( header =~ /^GSM\d+:GEO_record/) # Geo ID
-  ret = true if( header =~ /^GEO:TMPID:.*/) # Geo ID
-
-  # TODO more cases?
-  
-  ret
-end
-
-
-
 # table filename, header column indices, and expected # of columns
 tables = [
   ["attribute", "1,2", 7],
   ["data", "1,2", 6],
-  ["experiment_prop", "2", 7],
-  ["protocol", "1", 5]
+  ["experiment_prop", "2", 7] #,
+#  ["protocol", "1", 5]       Don't include protocols; they'll be handled separately
   ]
 
-#subs = Dir.entries(basedir).reject{|s| s =~ /\./ }[0..50] # a small test
+puts "Fixing embedded newlines and tabs." if FIXTABS
+
 subs = Dir.entries(basedir).reject{|s| s =~ /\./ }
 
 fnames = Hash.new{|h, filetype| "#{baseout}.#{filetype}" } 
-
 
 rawout = File.open(fnames["raw"], "w")
 multiout = File.open(fnames["multi"], "w")
@@ -161,13 +159,12 @@ uniqout.close
 puts "\nFinished processing input...cleaning up lists."
 
 # Then, some file cleanup:
-# Remove all headers appearing in multiheaders from singleheaders
+# Uniquify multiheaders, remove all headers appearing in 
+# multiheaders from singleheaders, and resave.
 
 multiheaders = File.open(fnames["multi"], "r").readlines.map{|s| s.chomp}.uniq
 uniqheaders = File.open(fnames["uniq"], "r").readlines.map{|s| s.chomp}.uniq
 
 uniqheaders.reject!{|s| multiheaders.include? s}
-
-# Write stuff to file
-
 File.open(fnames["uniq"], "w").puts uniqheaders.join("\n")
+File.open(fnames["multi"], "w").puts multiheaders.join("\n")
