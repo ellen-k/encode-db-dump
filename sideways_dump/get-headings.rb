@@ -1,4 +1,5 @@
 #!/usr/bin/ruby
+require File.join(File.dirname(__FILE__), 'table_helper')
 
 # get the headings that we will make the giant graph out of
 
@@ -17,7 +18,7 @@
 # basename.multi
 #   All headings which appear at least twice in at least one submission
 # basename.special
-#   Special-cased headings -- see special_case_this_header() below --
+#   Special-cased headings -- see self.special() in table_helper.rb
 #   which require special handling. Mostly GEO ids.
   
 
@@ -27,18 +28,7 @@
 # & thus should be excluded from the main tables ?
 # When building regexes, remember that header will also include the tablename.
 def special_case_this_header?(header)
-  ret = false
-  ret = true if( header =~ /^:Anonymous (?:Extra )?Datum #\d+/)
-  ret = true if( header =~ /^GS[EM]\d+:data_url/ )# Just an URL to GEO, don't need
-  ret = true if( header =~ /^SR[ARX].*:data_url/ ) #SRR, SRA, SRX IDs
-  ret = true if( header =~ /^SRR\d+:ShortReadArchive_project_ID/ ) #SRR ID
-  ret = true if( header =~ /^GSM\d+:GEO_record/) # Geo ID
-  ret = true if( header =~ /^GEO:TMPID:.*/) # Temp Geo ID
-  ret = true if( header =~ /^SRA:TMPID:.*/) # Temp SRA ID
-  ret = true if( header =~ /modENCODE Reference for/) # Reference to sub
-  # TODO more cases?
-
-  ret
+  TableHelper.special(header).nil? ? false : true
 end
 
 # Main #

@@ -40,16 +40,78 @@ class TableHelper
     l[@value_col] 
   end
 
-  # Is this a special header
-  def self.special(header)
+  # Determine if a header needs to be given special treatment.
+  # The keys in this hash are regexes which match the targeted headers.
+  # The values are arrays; value[0] is the header in the special table
+  # that the matching item will have.
+  # value[1] is the value in the special table.
+  # If it is based on the 'value' from the original table, it is a
+  # regex with a cature group which provides the desired output.
+  # If it is based on the passed heading, it is a Proc that can be
+  # run on the heading to produce the desired output. It's hilarious.
+  # see self.special for example usage.
+  INFO_SPECIAL_TABLE =
+    { 
+        /:Anonymous (?:Extra )?Datum #\d+/, # Anonymous Data
+        ["Anonymous Data", /(.*)/],
 
+        /^GS[EM]\d+:data_url/, # GEO ID 
+        ["GEO ids", Proc.new {|h| /^(GS[EM]\d+)/.match(h)[1]}],
+
+        /^SR[ARX].*:data_url/,  #SRR, SRA, SRX IDs
+        ["SRA ids", Proc.new {|h| /^(SR[ARX].*):data_url/.match(h)[1]}],
+
+        /^SRR\d+:ShortReadArchive_project_ID/,  #SRR ID
+        ["SRA ids", /(.*)/],
+
+        /^GSM\d+:GEO_record/, # Geo ID
+        ["GEO ids", /(.*)/],
+
+        /^GEO:TMPID:.*:(?:GEO_record|data_url)/, # Temp Geo ID
+        ["temp GEO ids", Proc.new {|h| /^(GEO:TMPID:.*):(?:GEO_record|data_url)/.match(h)[1]}],
+
+        /^SRA:TMPID:.*(?:ShortRead|data_url)/, # Temp SRA ID
+        ["temp SRA ids", Proc.new{|h| /^(SRA:TMPID:.*):(?:ShortRead|data_url)/.match(h)[1]}],
+
+        /modENCODE Reference for/, # Reference to sub
+        ["modENCODE Reference", /(.*)/]
+  }
+
+  # All possible special headers for the OUTPUT 'special' file 
+  def self.special_headers_list
+    INFO_SPECIAL_TABLE.values.map{|v| v[0]}.uniq
+  end 
+ 
+  # Checks if the header requires special treatment
+  # will return either nil (if it doesn't), or
+  # a pair of new header name and (value OR regex to get value) 
+  def self.special(header)
+    result = nil
+    INFO_SPECIAL_TABLE.each{|key, value|
+      if header =~ key then
+        if value[1].class == Proc then
+          result = [value[0], value[1].call(header)]
+        else
+          result = [value[0], value[1]]
+        end        
+        break
+      end
+    }
+    result
   end
 
-  # Does this line have a special header
+  # Does this line have a special header?
+  # If, so, return the new header & value
   def special(line)
     h = header(line)
-    TableHelper.special(h)
-    # TODO - return the appropriate value given a special header
+    ret = TableHelper.special(h)
+    # If ret[1] is a regex, apply it to the value field
+    # of the line; that is the result.
+    if (! ret.nil?) && (ret[1].class == Regexp) then
+      match = ret[1].match(value(line))
+      ret[1] = (match.nil? ? nil : match[1])
+    end
+    ret
   end
 
   # Tables!  
