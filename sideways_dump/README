@@ -6,15 +6,23 @@ so this script turns the tables "sideways" to achieve this.
 
 
 USAGE :
-Run dump_from_db.rb to pull the tables in their raw ModEncode format to disc.
+---Run dump_from_db.rb to pull the tables in their raw ModEncode format to disk.
 
-get_headings.rb is used to get a list of the keys encountered in all the submissions, for
-constructing the script to make the result table.
+---Run get_headings.rb , providing the output directory from dump_from_db.rb, to make
+lists of the different possible headings.
 
+--- Run make_table.rb providing the headings from get_headings and the output directory
+from dump_from_db to make the table that summarizes all the info.
 
+-- TODO : also have it find "Protocol Types" in the attribute table and connect them
+  to the protocols each submission has, as headings.
 
 Scripts:
 
 dump_from_db.rb : Pulls raw tables directly from the database.
   requires db_helper.rb and format_helper.rb in parent dir
-get_headings.rb -- finds potential column headings from dumped tables.
+
+get_headings.rb -- finds potential column headings from dumped tables. Sorts output into
+  keys which only appear once per submission, and keys which have multiple values.
+
+make_table.rb -- actually makes the table.
