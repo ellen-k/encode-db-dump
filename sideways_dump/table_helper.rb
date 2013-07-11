@@ -40,6 +40,15 @@ class TableHelper
     l[@value_col] 
   end
 
+  # return the rank of the item in that line
+  def rank(line)
+    return nil if @rank_col.nil?
+    l = split_line(line)
+    r = l[@rank_col]
+    return nil if (r.nil? || r.empty?)
+    r.to_i
+  end
+
   # Determine if a header needs to be given special treatment.
   # The keys in this hash are regexes which match the targeted headers.
   # The values are arrays; value[0] is the header in the special table

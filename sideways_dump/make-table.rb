@@ -43,6 +43,13 @@ io = {
 
 tables = TableHelper.tables
 
+# Add a submission id header for each table
+SUBMISSION_ID_HEADER = "Submission_id"
+[:uniq_in, :special_in, :multi_in].each{|input|
+  io[input] << SUBMISSION_ID_HEADER
+}
+
+
 # Print output headers
 io[:uniq_out].puts io[:uniq_in].join("\t")
 io[:special_out].puts io[:special_in].join("\t")
@@ -61,7 +68,14 @@ subs.each{|sub|
   multi_values = Hash.new{|h, k| h[k] = []}
   # Values = array of values
   special_values = Hash.new{|h, k| h[k] = []}
- 
+
+  # And add the submission ID header for each
+  uniq_values[SUBMISSION_ID_HEADER] = sub
+  [multi_values, special_values].each{|outtable|
+    outtable[SUBMISSION_ID_HEADER] << sub  
+  }
+
+
   # Get the lines in each table and sort them into output tables
   tables.each{|tablekey, table|
     current_table = File.join(basedir, sub, table.name)
@@ -73,6 +87,9 @@ subs.each{|sub|
     data = File.open(current_table, "r") 
     
     data.each_line{|line|
+        
+      header = table.header(line)
+      value = table.value(line)
 
       # If it's a 'special' header (eg GEO id), store it hashed by
       # the output file's genericized special header.
@@ -81,22 +98,36 @@ subs.each{|sub|
         special_values[special_res[0]] << special_res[1]
         next
       end
+
       # If it's a uniq header, add the line's value to the uniq hash
-      if io[:uniq_in].include? table.header(line) then
-        uniq_values[table.header(line)] = table.value(line)
+      if io[:uniq_in].include? header then
+        uniq_values[header] = value
         next
       end
-      if io[:multi_in].include? table.header(line) then # TODO
-        # Add to the multi hash, arranging by rank
-        # Check for rank collisions
-        # Data table has no rank : don't worry about order
-        # TODO
-        print "m"
+
+      # If it's a multi header, add the line's value to multi hash,
+      # arranging by rank (if available)
+      if io[:multi_in].include? header then
+        rank = table.rank(line)
+        # if no rank, just stick it on
+        if rank.nil? then
+          multi_values[header] << value
+          next
+        end
+        # There is a rank; check for collisions
+        if multi_values[header][rank].nil? then
+          multi_values[header][rank] = value
+          next
+        else # Whoops, collision
+          puts "Rank Collision: #{sub}:#{table.name}:adding #{value} to #{header} rank #{rank} but it already has #{multi_values[header][rank].inspect}!"
+          # Stick it in the same index for now, joined by a --
+          # TODO reconsider?
+          multi_values[header][rank] += "--" + value
+        end
         next
       end
       # Whoops, didn't recognize a header. This should never happen; complain
-      # TODO
-      print "Q" # for now
+      puts "Found unrecognized header #{header} for #{sub}:#{table.name}!!!!"
     } 
 
     data.close if data.respond_to?("closed?") && !(data.closed?)
@@ -109,10 +140,13 @@ subs.each{|sub|
   }.join("\t")
   io[:uniq_out].puts output_uniq
 
-  # multi
-  # TODO
-  # Join values, correlating the related ones
-  # (somehow)
+  
+  # Join values in rank order
+  # Don't uniquify
+  output_multi = io[:multi_in].map{|heading|
+    multi_values[heading].join(";")
+  }.join("\t")
+  io[:multi_out].puts output_multi
 
   # special
   output_special = io[:special_in].map{|heading|
