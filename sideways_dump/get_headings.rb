@@ -33,7 +33,7 @@ end
 
 # Main #
 if ARGV.length < 2 then
-  puts "Usage: ./get_headings.rb input_directory output_file_basename [-f]
+  puts "Usage: ./get_headings.rb input_directory output_file_basepath [-f]
         -f: Fix embedded newlines or tabs." 
   exit
 end

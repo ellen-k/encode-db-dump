@@ -1,32 +1,68 @@
 #!/usr/bin/ruby
-
 require File.join( File.dirname(__FILE__), '..', 'format_helper.rb'); 
 
-# From the modencode database,
-# for each submission in the following list 'projs':
 
-#projs = FormatHelper.released_projs()
-projs = File.open("redosubs.2013.07.02.txt", "r").readlines.map{|s| s.to_i}
-#projs = [3575, 666]
+# From the modencode database,
+# for each submission in the provided submission list
 
 # dump the tables listed below into a tabular format,
 # stripping tabs and newlines.
 
 # Creates a directory for each submission in the specified output directory,
 # with a file for each table.
-output_basedir = "../../OUTPUT/july2redo"
 
-# Dependencies: Must be run in the rails context
-# if we use the FormatHelper.released_projs() method
+def usage
+  puts "Usage examples:
+  ./dump_from_db.rb --headers OUTDIR
+    ^ Dumps headings only into the dir OUTDIR
+  ./dump_from_db.rb OUTDIR -file INFILE
+    ^ Dumps projects listed in INFILE 
+    (id only, one per line) to OUTDIR
+  ./dump_from_db.rb OUTDIR -list 1000 1001 1002
+    ^ Dumps projects 1000, 1001, etc to OUTDIR."
+end
 
-# Getting headers only: Run with --headers 
-# to get a list of column headers instead of data
+if ARGV.empty? then
+  usage
+  exit
+end
+
 headers_only = false
+output_basedir = nil
+projs = nil
+
 if ARGV[0] == '--headers' then
   projs = [3575] # a random submission
   headers_only = true
-  puts "Getting column headers only. See 'headers' dir inside #{output_basedir}."
+  output_basedir = ARGV[1]
+else # if no headers, first argument must be outdir
+  output_basedir = ARGV[0]
+  case ARGV[1]
+    when "-file"
+      infile = ARGV[2].to_s
+      unless File.exist? infile then
+        puts "Can't find input file \"#{infile}\"!"
+        exit
+      end
+      projs = File.open(ARGV[2], "r").readlines.map{|s| s.to_i}
+    when "-list"
+      projs = ARGV[2...ARGV.length].map{|s| s.to_i}
+    else
+      puts "Unrecognized arguments [#{ARGV.join(" ")}]! Usage:"
+      usage
+      exit
+  end
 end
+
+
+projs.uniq!
+
+if File.exists? output_basedir then
+  puts "Error: output directory #{output_basedir} already exists; delete it or pick another!"
+  exit
+end
+
+puts "Getting column headers only. See 'headers' dir inside #{output_basedir}." if headers_only
 
 # Aside: Getting all nonempty tables:
 # They are just manually listed in a variable 'tables'
@@ -71,6 +107,7 @@ data_wiggle_data
 organism_dbxref
 organismprop".split "\n"
 
+Dir.mkdir output_basedir
 
 puts "Dumping submissions..." unless headers_only
 
@@ -95,7 +132,7 @@ subs = FormatHelper.run_on_projects(projs){|dbh, sub|
     res.map!{|row| row.map{|item| item.to_s.gsub(/\s+/, " ")}.join("\t")}
     rr = res.join "\n"
     unless rr.empty? then
-        ff = File.open(outd + "/#{t}", "w")
+        ff = File.open(File.join(outd, t), "w")
         ff.puts rr
         ff.close
     end

@@ -10,24 +10,10 @@ require 'yaml'
 # Change RAILS_ROOT as necessary for the location of your config files
 RAILS_ROOT = "/var/www/submit" unless defined?(RAILS_ROOT)
 
-# dbi_patch.rb has this stupid dependency, duplicate it here so we don't need rails.
-class RsyncUploadController
-  def self.gbrowse_tmp
-    if File.exists? "#{RAILS_ROOT}/config/gbrowse.yml" then
-       gbrowse_config = open("#{RAILS_ROOT}/config/gbrowse.yml"){ |f|
-        YAML.load(f.read) }
-      return  gbrowse_config['tmp_dir']
-    else
-      raise "You need a gbrowse.yml file in your config/ directory /
-             with at least a tmp_dir in it."
-    end
-  end
-end
-require "#{RAILS_ROOT}/lib/dbi_patch.rb" if File.exists? "#{RAILS_ROOT}/lib/dbi_patch.rb"
-
 module DbHelper
   # Get database info
   def database
+    # TODO : make more portable
     if File.exists? "#{RAILS_ROOT}/config/idf2chadoxml_database.yml" then
       db_definition = open("#{RAILS_ROOT}/config/idf2chadoxml_database.yml") { |f| YAML.load(f.read)
       }
