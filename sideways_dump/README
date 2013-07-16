@@ -1,28 +1,226 @@
-Many of the tables in the ModEncode database are in a key-value format.
-It would be more convenient to have the keys as column-headings (including one for submission ID) and the vales as the values,
-so this script turns the tables "sideways" to achieve this.
+README
+modENCODE to ENCODE3 Sideways Data Dump
+Last updated July 16, 2013
 
-(It doesn't actually turn them sideways, but a convenient way to refer to the transformation was necessary.)
+Contents:
+  OVERVIEW
+  INTERPRETATION OF OUTPUT
+  INCLUDED SCRIPTS
+  INSTALLATION & DEPENDENCIES
+  USAGE
 
 
-USAGE :
----Run dump_from_db.rb to pull the tables in their raw ModEncode format to disk.
+OVERVIEW
+  Many of the tables in the modENCODE database are formatted with a column named
+  'key' providing the context for the corresponding items in a colum named 'value',
+  as opposed to the column headings providing the context for each column's values.
+  In addition, each modENCODE 'submission' has its own personal set of tables,
+  making it very difficult to correlate information between submissions whether
+  the tables are presented as files or within a database.
 
----Run get_headings.rb , providing the output directory from dump_from_db.rb, to make
-lists of the different possible headings.
+  These concerns motivate this script, which scrapes all the possible keys
+  from the tables in the database, and uses them as headings to create a gigantic 
+  tab-separated chart containing information from all the submissions together.
 
---- Run make_table.rb providing the headings from get_headings and the output directory
-from dump_from_db to make the table that summarizes all the info.
 
--- TODO : also have it find "Protocol Types" in the attribute table and connect them
-  to the protocols each submission has, as headings.
+INTERPRETATION OF OUTPUT
+  This section is in reverse chronological order, so to speak, since the output
+  of make_table is the most interesting.
 
-Scripts:
+  MAKE TABLE
+    Output: Three text files, each containing one line per submission processed.
+      These lines contain tab-separated items. At the top of each file is a 
+      header line containing the headings corresponding to the items in each row.
+      The rightmost column contains the ModENCODE id number of the submission of 
+      that row. The output text files are placed in the directory specified by the
+      arguments when running make_table.
 
-dump_from_db.rb : Pulls raw tables directly from the database.
-  requires db_helper.rb and format_helper.rb in parent dir
+      Files output by make_table :
 
-get_headings.rb -- finds potential column headings from dumped tables. Sorts output into
-  keys which only appear once per submission, and keys which have multiple values.
+      main-table.tsv
+        The heading items in main-table.tsv are all of those listed in the
+       .uniq file output by get_headings, indicating that each submission has 
+       at most one value associated with each heading.
+       Thus, each line represents one submission, and the tab-separated values 
+       are the items associated with each respective heading. These values have 
+       been stripped of tab and newline characters.
 
-make_table.rb -- actually makes the table.
+      multi-headings.tsv
+        This file contains data from each submission where the headings may appear
+        in multiple rows, with different values, within a submission. A heading's 
+        inclusion on this table does not indicated that EVERY submission that 
+        contains it has multiple values for it, only that at least one does.
+
+        Within the row, multiple items with the same heading will appear in a single tab-separated
+        column, joined with a semicolon.
+
+        For some input tables, a "rank" column was available, which could signify a
+        correspondence between two items with different headings. For example,
+        a "Person First Name" with rank of 2 would correlate with the "Person Last
+        Name" also with rank of 2.
+        For items with a rank, the items within a heading have been joined in the
+        order of their rank, and a rank having no items in it would be indicated by
+        an 'empty' item or two (or more) consecutive semicolons. For example,
+        ;;Foo;;;Bar
+        signifies that Foo has a rank of 2 and Bar has a rank of 5.
+    
+        It is common to have multiple items with the same heading and rank;
+        in this case, they have been joined with two dashes (--). For example,
+        Foo--Bar--Baz;Xyzzy 
+        indicates that Foo, Bar, and Baz have rank 0 and Xyzzy has rank 1.
+
+        For tables (eg, Data) which have no rank, the items have been joined by
+        a semicolon in no particular order (typically the order they were listed
+        in the original output table.)
+
+      special-headings.tsv
+        This file contains data from each submission whose heading matches the 
+        criteria for inclusion in the .special file output from get_headings. In
+        the case where a heading corresponded to multiple data items within a 
+        submission, the item in that heading / submission intersection will be 
+        multiple values joined with a semicolon (;).
+
+        The following items will appear on the 'special-headings' table:
+          GEO ids : a list of GEO ids associated with the submission
+          SRA ids : a list of SRA ids associated with the submission
+          temp GEO ids : a list of the placeholder strings used to represent GEO ids
+          that the submission will have but are not yet known
+          temp SRA ids : a list of the placeholders for as-of-yet unknown SRA ids
+          modENCODE Reference : IDs of other submissions referenced by the 
+            current submission
+          Anonymous Data : Data input or output from protocols without being 
+            explicitly specified. I'm not 100% clear on what this is myself.
+
+  GET HEADINGS
+    Output: Four text files, each containing one heading per line. The basename of
+    the files is chosen when the script is run (Example: myHeadings) and each
+    file has a different extension, listed below.
+
+    A 'heading' is defined as the concatenation of the values in the 'name' and
+    'heading' fields within the dumped database table, and the name of that table.
+    The values are joined by colons. For example, if in the data table, the 'name'
+    value for one row was 'fastq' and the 'heading' value was 'Result File', the
+    heading generated by that row would be 'fastq:Result File::data'.
+    
+    The experiment_prop table does not have a 'heading' field and so
+    the items are displayed as, eg, 'Investigation Title::experiment_prop'.
+
+    If the name or heading field is empty, the colons are not removed. An example
+    output heading where this is the case is ':tissue::attribute', where the 
+    'name' field is empty.
+
+    Files output by get_headings (with example base name myHeadings):
+
+      myHeadings.raw : A log of each file accessed and the headings that appeared
+        in that file.
+
+      myHeadings.uniq : Headings which appear no more than once per file in every
+        submission they appear in.
+
+      myHeadings.multi : Headings which appear twice in the same file in at least
+        one submission (even if they only appear once for some submissions.)
+
+      myHeadings.special : Headings which require special handling. These are, for
+        example, GEO ids, SRA IDs, and "Anonymous Data" headings. They typically 
+        appear in only one submission (because each GEO id is associated with only
+        one submission), and should instead be values in a shared 'GEO id' heading;
+        this heading is coded into the script as opposed to being generated from the
+        heading & name fields.
+
+  DUMP FROM DB
+
+    Output: One directory per ModENCODE submission, named for the submission ID.
+    Within each submission directory is one text file for each table in the 
+    database namespace for that submission.
+    Each text file is tab-separated and contains the values from the database
+    table with tabs and newlines removed.
+    There are no header rows within the file; files containing the colum names
+    can be generated separately (see USAGE below).
+
+INCLUDED SCRIPTS
+    Helpers
+      table_helper.rb
+      ../db_helper.rb
+      ../format_helper.rb
+
+    Runnable scripts
+  dump_from_db.rb : Pulls raw tables from the modEncode database and outputs as
+    tab-separated tables in a directory structure. Strips tabs and newlines from
+    the values in the database.
+
+  get_headings.rb -- finds potential column headings from dumped tables and outputs
+    into text files. Sorts output into keys which only appear once per submission, 
+    and keys which have multiple values.
+
+  make_table.rb -- Using the heading text files, iterates through the dumped tables
+    and makes the final output tables correlating the submissions to the headings.
+
+  INSTALLATION & DEPENDENCIES
+   
+    These scripts don't need to be compiled; once the git repository is downloaded
+    they are ready to be run.
+    
+    They were developed on a linux system using ruby 1.8.7, and haven't been tested
+    elsewhere, but most likely would work ok.
+
+    dump_from_db has a few external dependencies; get_headings and make_table do not.
+    
+    dump_from_db requires:
+      -- a config file with the database connection information. By default, this file
+         is at /var/www/submit/config/idf2chadoxml_database.yml
+      -- the following Ruby modules:
+            fileutils
+            pp
+            rubygems
+            dbi
+            dbd/Pg
+            yaml
+
+USAGE
+
+  Set up dump_from_db's database configuration file in the appropriate location.
+
+  To run dump_from_db:
+      ./dump_from_db.rb DBDUMP_OUTPUT -file SUB_LIST
+      DBDUMP_OUTPUT is the directory where the output files will go. 
+      SUB_LIST is a text file containing the list of submission IDs to process, one per line
+      Example:
+      1000
+      1001
+      1002
+      (and so on.)
+
+      DBDUMP_OUTPUT should not already exist.
+
+      To get a folder containing the column names for each table,
+      run ./dump_from_db.rb --headings DBDUMP_OUTPUT
+      The headings will be in a folder named 'headings' inside the output directory.
+
+  To run get_headings:
+    ./get_headings.rb [DBDUMP_OUTPUT] [HEADING_FILE_PATH]
+    DBDUMP_OUTPUT is the directory where dump_from_db's results were stored.
+    HEADING_FILE_PATH is the path, including filename, for the headings to be written to.
+    If HEADING_FILE_PATH is, for example, ~/dbdump/myHeadings, the output files will be
+    written to ~/dbdump/myHeadings.raw, ~/dbdump/myHeadings.multi, 
+    ~/dbdump/myHeadings.uniq, and ~/dbdump/myHeadings.special
+
+  To run make_table:
+    ./make_table.rb [DBDUMP_OUTPUT] [HEADING_FILE_PATH] [TABLE_DIR]
+
+    DBDUMP_OUTPUT is the directory containing the dumped database files from dump_from_db.
+    HEADING_FILE_PATH is the path, including filename, for where the headings were written.
+    TABLE_DIR is the directory for writing the tables to. For example, if  
+    TABLE_DIR is ~/dbdump/sideways_tables, the output files will be written to
+    ~/dbdump/sideways_tables/main-table.tsv, ~/dbdump/sideways_tables/multi-headings.tsv,
+    and ~/dbdump/sideways_tables/special-headings.tsv.
+
+
+FURTHER ENHANCEMENTS
+    TODO provide an example database config YML file for dump_from_db
+      and make its inclusion more user friendly
+    TODO make the output format (output dir vs output basename) consistent between
+    get_headings and make_table
+
+    TODO : also pull "Protocol Types" from the database in the attribute table and connect them
+    to the protocols each submission has, as headings.
+
