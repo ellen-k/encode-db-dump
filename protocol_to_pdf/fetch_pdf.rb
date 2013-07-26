@@ -20,6 +20,16 @@
 # wiki username
 # wiki password
 # ec escape character for the shell escaping of '?' -- windows uses ^, others use \
+
+# TODO : add column for which is the oldid
+# and backup column if that doesnt work
+# to allow input from the other output script
+
+if ARGV.length != 1 then
+  puts "Usage: ./fetch_pdf.rb <configuration file name>"
+  exit
+end
+
 setup = File.open(ARGV[0], "r").readlines.map{|s| s.chomp}.reject{|s| ((s =~ /#/) || s.empty? )}
 (
 base_url,
@@ -34,22 +44,34 @@ ec) = setup
 oldids = File.open(oldid_list, "r").readlines.map{|s| s.chomp} # just crashes if no file
 Dir.mkdir output_folder unless File.directory? output_folder
 
-# Get the cookie jar set up
+# Setup:
+# Use wget to make a cookie_jar.
+# Then open it and attach the cookies independently to the run_cmd.
+# (Using the cookie-jar directly just makes wkhtml delete it for some reason ?? )
 
-setup_cmd = "#{run_path} --post wpName #{name} --post wpPassword #{password} --post wpLoginattempt Log+in " +
-            "--cookie-jar #{cookie_jar} #{base_url}?title=Special:UserLogin" +
-            "#{ec}&action=submitlogin#{ec}&type=login#{ec}&returnto=Main_Page #{File.join(output_folder, "deleteme.pdf")}"
-
+setup_cmd = "wget --save-cookies #{cookie_jar} --keep-session-cookies --post-data " +
+  "'wpName=#{name}&wpPassword=#{password}&wpLoginattempt=Log+in' " +
+  "#{base_url}?title=Special:UserLogin#{ec}&action=submitlogin#{ec}" +
+  "&type=login -O #{File.join(output_folder, "deleteme.html")} 2>/dev/null"
 
 # run the setup command to get the cookies in the jar
 `#{setup_cmd}`
 puts setup_cmd
 
+# Get the cookies back out of the jar
+cookies = File.open(cookie_jar, "r").readlines.reject{|s|
+  (s =~ /^\s*$/) || (s=~ /^\s*#/)}.map{|l|
+  l.chomp.split("\t")[5..6]}
+puts cookies.map{|s| "nam #{s[0]} val #{s[1]}"}
+use_cookies = cookies.map{|s| "--cookie \"#{s[0]}\" \"#{s[1]}\""}.join(" ")
+
 # then make the pdf for each protocol run
 oldids.each{|oldid|
   puts "-------------#{oldid}--------------"
-  run_cmd = "#{run_path} --cookie-jar #{cookie_jar} #{base_url}?oldid=#{oldid} #{File.join(output_folder, oldid)}.pdf"
+  run_cmd = "#{run_path} #{use_cookies} #{base_url}?oldid=#{oldid} " +
+    " #{File.join(output_folder, oldid)}.pdf 2>/dev/null"
   `#{run_cmd}`
+  puts run_cmd
 }
 
 puts "DONE"
