@@ -1,0 +1,43 @@
+---
+# Sample YAML configuration file for 
+# find_wikipage_references.pl and
+# categorize_wikipages.pl
+
+### Config for find_wikipage_references ###
+
+# Information about the database storing the modEncode submissions
+db_handle: dbi:Pg:dbname=mydatabase;host=localhost
+db_user: username
+db_pw: password
+
+# Input and output files
+project_list: list_of_submissions.txt
+output_file: preliminary_wikipage_refs.txt
+
+# Input file format
+# These defaults are the correct values if you are using "list.txt",
+# the list of ModEncode submissions downloadable at 
+# http://submit.modencode.org/submit/public/list.txt
+# If you're using a different input file, it should be tab separated.
+
+# What column is the project ID in (first column has index of 0)?
+input_pid_column: 0
+# If filter_by_released is true, process only submissions which have the word
+# "released" in the specified column. (alternatively, say 'false' )
+filter_by_released: true
+# What column to look for the 'released' word (0-based indices)
+input_released_column: 9 
+
+### Config for categorize_wikipages ###
+
+# Note that the input file for this script is "output_file" from 
+# the find_wikipage_references section.
+
+# Information about your MediaWiki backend database
+wiki_db_handle: dbi:mysql:database=WikiDatabase;host=localhost
+wiki_db_user: username
+wiki_db_pw: password
+
+# File for final output
+
+wiki_output_file: categorized_wikipages.txt 
