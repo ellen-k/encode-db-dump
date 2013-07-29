@@ -1,6 +1,6 @@
 README
 modENCODE to ENCODE3 Download Wiki as Documents
-Last updated July 26 2013
+Last updated July 28 2013
 
 Contents:
   USAGE
@@ -23,7 +23,8 @@ USAGE
   perl find_wikipage_references.pl SAMPLE.perl_conf.yml
 
   This will create a list of submissions and their referenced oldids. 
-  It may take 20-30 minutes so you may want to use "screen".
+  A full run of the ModEncode submissions may take 2-3 hours, so it's
+  recommended to run inside a 'screen' shell to prevent disconnections.
   Then, put the details of your wiki database into the config file and run:
 
   perl categorize_wikipages.pl SAMPLE.perl_conf.yml

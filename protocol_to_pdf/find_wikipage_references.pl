@@ -141,21 +141,15 @@ while (my $projline = <PROJECTLIST>) {
   while(my ($accession, $dbxref_id, @wikitype) = $sth_accession->fetchrow_array()) {
     # Clean the URL
     $accession =~ s|^\Qhttp://wiki.modencode.org/project/index.php?title=\E||g;
-   
-    # Split off the oldid if it has one
-    $accession = URI::Escape::uri_unescape($accession);
-    my ($title, $oldid) = split("&oldid=", $accession);
 
+    # Split off the oldid, allowing for missing or escaped &
+    $accession = URI::Escape::uri_unescape($accession);
+    my ($title, $oldid) = split(/&?(?:amp;)?oldid=/, $accession);
+    
     # Special Case:
     # If the title is just a number, it's Celniker RNA
     if ( $title =~ /^\d+$/) {
       $title = "Celniker/RNA:$title";
-    }
-
-    # Special case: Some of the titles don't have &oldid
-    # at the end, but just 'oldid'. Get rid of that.
-    if ( $title =~ /oldid/) {
-      my ($title, $oldid) = split("oldid=", $accession);
     }
 
     # Figure out what other tables reference this accession
