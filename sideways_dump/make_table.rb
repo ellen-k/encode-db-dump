@@ -118,10 +118,8 @@ subs.each{|sub|
         if multi_values[header][rank].nil? then
           multi_values[header][rank] = value
           next
-        else # Whoops, collision
-          puts "Rank Collision: #{sub}:#{table.name}:adding #{value} to #{header} rank #{rank} but it already has #{multi_values[header][rank].inspect}!"
-          # Stick it in the same index for now, joined by a --
-          # TODO reconsider?
+        else # Collision in rank ; this happens frequently in the attribute table
+          # Stick it in the same index, joined by a --
           multi_values[header][rank] += "--" + value
         end
         next
