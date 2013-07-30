@@ -17,8 +17,8 @@ use List::MoreUtils qw(first_index);
 use feature qw(switch);
 
 unless( scalar(@ARGV) == 1){
-  print "    Usage: perl get-wiki-dbinfo.pl <configuration file>" .
-      "\n    See wiki-dbinfo.yml for a sample configuration.\n"; 
+  print "    Usage: perl find_wikipage_references.pl <configuration file>" .
+      "\n    See SAMPLE.perl_conf.yml for a sample configuration.\n"; 
   exit;
 }
 
@@ -115,6 +115,9 @@ while (my $projline = <PROJECTLIST>) {
   # skip non-released subs if appropriate
   if ($filter_by_released) {
     $released = $projitems[$released_col];
+    defined($released) or die "No release status info found in column " .
+      "$released_col of input file! If you're not filtering by released,\n" .
+      "please set the field to false in the configuration file." ;
     next if (!($released eq "released")) ;
   }
 
@@ -138,11 +141,16 @@ while (my $projline = <PROJECTLIST>) {
   while(my ($accession, $dbxref_id, @wikitype) = $sth_accession->fetchrow_array()) {
     # Clean the URL
     $accession =~ s|^\Qhttp://wiki.modencode.org/project/index.php?title=\E||g;
-   
-    # Split off the oldid if it has one
-    my ($title, $oldid) = split("&oldid=", $accession);
+
+    # Split off the oldid, allowing for missing or escaped &
     $accession = URI::Escape::uri_unescape($accession);
-    # note weird accessions like Celniker/RNA:48 
+    my ($title, $oldid) = split(/&?(?:amp;)?oldid=/, $accession);
+    
+    # Special Case:
+    # If the title is just a number, it's Celniker RNA
+    if ( $title =~ /^\d+$/) {
+      $title = "Celniker/RNA:$title";
+    }
 
     # Figure out what other tables reference this accession
     my $found_wikitype = "NO_WIKITYPE";
@@ -165,7 +173,6 @@ while (my $projline = <PROJECTLIST>) {
     print OUTPUT $found_wikitype . "\n";
   }
 }
-
 
 END { # make sure to disconnect properly if it crashes (only if has already connected)
   print " Goodbye...\n";

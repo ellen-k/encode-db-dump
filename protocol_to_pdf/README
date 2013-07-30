@@ -1,10 +1,169 @@
-Scripts for downloading pages from a mediawiki site by oldid and turning them into pdf files
-please see input-sample.conf for setting up your configuration
+README
+modENCODE to ENCODE3 Download Wiki as Documents
+Last updated July 28 2013
 
-This requires wkhtmltopdf -- the DL I used on ubuntu is
+Contents:
+  USAGE
+  OVERVIEW
+  INTERPRETATION OF OUTPUT
+  INCLUDED SCRIPTS
+  INSTALLATION & DEPENDENCIES
 
-wkhtmltopdf-0.11.0_rc1-static-i386.tar.bz2
+USAGE
 
-although I'm not confident of the link. from the google repository.
-Not sure which I'm using for mac or windows7.
+  -----To get the wikipages mentioned in each ModENCODE submission-----
+
+  Get a list of modEncode submissions from the submit site
+  http://submit.modencode.org/submit/public/list.txt
+
+  Put the details of your submission database, and the appropriate columns from
+  list.txt, into the config file SAMPLE.perl_conf.yml
+  Run:  
+
+  perl find_wikipage_references.pl SAMPLE.perl_conf.yml
+
+  This will create a list of submissions and their referenced oldids. 
+  A full run of the ModEncode submissions may take 2-3 hours, so it's
+  recommended to run inside a 'screen' shell to prevent disconnections.
+  Then, put the details of your wiki database into the config file and run:
+
+  perl categorize_wikipages.pl SAMPLE.perl_conf.yml
+
+  This will reference the oldids to the most recent oldid, as well as the
+  wiki categories for the page.
+
+  -----To generate pdf documents for each wikipage-----
+
+  Edit SAMPLE.fetch_pdf.conf with your wiki details and the file output by
+  categorize_wikipages.pl .
+
+  Then, run:
+
+  ruby fetch_pdf.rb SAMPLE.fetch_pdf.conf
+
+  This may also take some time.
+  The pdfs will be stored, labeled by oldid, inside the directory specified
+  by the configuration file, and can be indexed by the categorize_wikipages.pl
+  output.
+
+
+OVERVIEW
+
+  The ENCODE3 system makes use of "documents": Free-text files describing 
+  experimental protocols, etc. The ModENCODE system, on the other hand, uses
+  a MediaWiki site to store information about the protocols. Therefore, it
+  makes sense to translate the pages on the wiki into individual files for
+  export for the ENCODE3 system.
+
+  To determine which wiki pages are relevant to a particular ModENCODE
+  submission, the ModENCODE submission Chado database can be searched for
+  links to wiki pages.
+
+  These scripts search the ModENCODE database for references to the ModENCODE
+  wiki, and export the found pages into individual PDFs which can be linked
+  back to the referring ModENCODE submission.
+
+INTERPRETATION OF OUTPUT
+  find_wikipage_references.pl outputs two files with configurable names; the
+    defaults are preliminary_wikipage_refs.txt & categorized_wikipages.txt
+
+      - preliminary_wikipage_refs.txt : A preliminary tab-separated file used
+        as input for categorized_wikipages.txt to create the final list of
+        wikipages used in submissions. This file contains the following columns:
+
+        Submission_id Page_title Oldid Table_type
+
+        This signifies that the submission identified with Submission_id
+        found a reference to the page named Page_title with specific revision
+        Oldid on the table Table_type.
+        If there is no Oldid found, the OLDID column contains 'NO_OLDID'.
+
+      - categorized_wikipages.txt : A tab-separated file useful in its own
+        right, but also used as input for fetch_pdf.rb. Contains the columns:
+
+        Submission_Id Page_Title Oldid Latest_Revision Wiki_Categories
+
+        This signifies that the submission with id Submission_id refers to
+        the page named Page_title with specific revision Oldid; and that the
+        latest version of the page has revision Latest_revision; and that the
+        page is a member of the categories Wiki_Categories.
+
+        Wiki_Categories are separated by a semicolon (;).
+        If there was no oldid listed in the submission, the Oldid is NO_OLDID,
+        but if a page was found on the wiki with Page_title, the latest
+        revision's oldid is still listed in Latest_revision.
+        If no page with the title or oldid were found on the wiki, then
+        Latest_revision and Wiki_categories will both be 'NOT_IN_WIKI'.
+
+
+  fetch_pdf.rb
+    This script creates a number of PDF files, each of which is a copy of a
+    wiki webpage, with all original formatting and embedded images. 
+    The name of each file is  <oldid>.pdf, where <oldid> is the ID number of i
+    the specific revision of the wikipage which the PDF stores.
+    For example, a wikpage at http://example.com/wiki/index.php?oldid=12345 will
+    be stored in the file named "12345.pdf". 
+    Multiple revisions of the same wikipage will be stored under their own
+    oldid.
+
+    To find the wikipage that you want, the file categorized_wikipages.txt
+    can be searched on submission ID, page name, or category criteria and
+    the appropriate oldids can be extracted.
+
+
+INCLUDED SCRIPTS
+
+  find_wikipage_references.pl is a modENCODE-specific script. Provided a list of 
+    modEncode submission IDs, it will search the database for wikipages
+    associated with those IDs and return a tab-separated file with the
+    correlations between submission and wiki "oldid".
+
+  categorize_wikipages.pl is run by find_wikipage_references to attach to each
+    wikipage entry the categories on the wiki the page belongs to.
+
+  fetch_pdf.rb is a more general script. Provided a list of wiki "oldids",
+    which represent specific versions of the pages on the wiki, it will fetch
+    these versioned pages and store them as a pdf file named <oldid>.pdf where
+    <oldid> is the oldid of the page fetched.
+
+INSTALLATION & DEPENDENCIES
+  Installation:
+    If all dependencies are installed, these scripts can be run "out of the
+    box" once the configuration file is edited. If you are missing wget, 
+    you can install it on Debian-based Linux:
+      sudo apt-get install wget
+    If you're missing wkhtmltopdf (likely), you can download it from the link
+    below, in Dependencies.
+
+  Configuration files:
+    find_wikipage_references.pl:
+      See SAMPLE.perl_conf.yml for example configuration. You will need 
+       TODO
+    fetch_pdf.rb : see SAMPLE.fetch_pdf.conf for example configuration.
+      TODO
+
+  Dependencies:
+    Tested on: 
+      perl 5.10.0
+      ruby 1.8.7
+
+    find_wikipage_references.pl requires the following perl modules:
+      DBI
+      LWP::Simple
+      YAML
+      URI::Escape
+      List::MoreUtils
+
+    fetch_pdf.rb :
+      Requires wget.
+      Requires wkhtmltopdf, available at 
+        http://code.google.com/p/wkhtmltopdf/downloads/list
+   
+    This was most recently succesful on 64-bit Debian with wkhtmltopdf version:
+    wkhtmltopdf-0.11.0_rc1-static-amd64.tar.bz2
+
+    Note: The wkhtmltopdf package is in bzip2 format. To unzip on linux,
+      tar jxvf wkhtmltopdf-0.11.0_rc1-static-i386.tar.bz2
+    If you don't have bzip2 (like I didn't), you can get it on linux with
+      sudo apt-get install bzip2
 
